@@ -17,14 +17,12 @@
 
 using System.Numerics;
 
+using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImPlot;
 using Dalamud.Interface;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Utility;
 using Dalamud.Utility;
-
-using ImGuiNET;
-
-using ImPlotNET;
 
 using MidiBard.Managers.Ipc;
 using MidiBard.Util;
@@ -78,7 +76,8 @@ public partial class PluginUI
             DrawMainPluginWindow();
             DrawTrackVisualizerWindow();
             DrawCompensationEditWindow();
-            DrawEnsembleControl();
+            DrawEnsembleWindow();
+            DrawBMLWindow();
             LrcEditor.Instance.Draw();
             ImGuiUtil.IconButtonSize.Clear();
         }
@@ -146,11 +145,10 @@ public partial class PluginUI
                     DrawButtonPlayMode(disabled: ensembleRunning);
                     DrawButtonShowSettingsWindow();
                     DrawButtonVisualization();
-                    DrawButtonShowEnsembleControl(disabled: !api.PartyList.IsPartyLeader());
-
+                    DrawButtonShowEnsembleWindow(disabled: !api.PartyList.IsPartyLeader());
                     if (!api.PartyList.IsPartyLeader())
                     {
-                        ShowEnsembleControlWindow = false;
+                        ShowEnsembleWindow = false;
                     }
                 }
                 ImGuiUtil.PopIconButtonSize();

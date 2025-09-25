@@ -18,9 +18,8 @@
 using System.Collections.Generic;
 using System.Numerics;
 
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
-
-using ImGuiNET;
 
 using MidiBard.Managers;
 
@@ -36,10 +35,11 @@ public partial class PluginUI
         uint undefinedInstrumentTexture = 60042;
 
         var icon = instrumentId == 0
-            ? TextureManager.Get(undefinedInstrumentTexture).GetWrapOrEmpty().ImGuiHandle
-            : MidiBard.Instruments[instrumentId].IconTextureWrap.GetWrapOrEmpty().ImGuiHandle;
+            ? TextureManager.Get(undefinedInstrumentTexture).GetWrapOrEmpty().Handle
+            : MidiBard.Instruments[instrumentId].IconTextureWrap.GetWrapOrEmpty().Handle;
 
-        ImGui.Image(icon, new Vector2(ImGui.GetFrameHeight()));
+        var iconSize = new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight());
+        ImGui.Image(icon, iconSize);
 
         if (ImGui.IsItemHovered())
             ImGuiUtil.ToolTip(MidiBard.Instruments[instrumentId].InstrumentString);
@@ -52,7 +52,7 @@ public partial class PluginUI
 
             for (uint i = 1; i < MidiBard.Instruments.Length; i++)
             {
-                ImGui.Image(MidiBard.Instruments[i].IconTextureWrap.GetWrapOrEmpty().ImGuiHandle, ImGuiHelpers.ScaledVector2(40, 40));
+                ImGui.Image(MidiBard.Instruments[i].IconTextureWrap.GetWrapOrEmpty().Handle, ImGuiHelpers.ScaledVector2(40, 40));
 
                 if (ImGui.IsItemClicked())
                 {

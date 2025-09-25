@@ -17,7 +17,7 @@
 
 using System.Numerics;
 
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 
 using Melanchall.DryWetMidi.Interaction;
 
@@ -80,7 +80,7 @@ public partial class PluginUI
 
         if (MidiBard.config.UiShowGuitarToneMode)
         {
-            if (ImGuiUtil.EnumCombo($"{Language.setting_label_tone_mode}", ref MidiBard.config.GuitarToneMode, toneModeToolTips))
+            if (ImGuiUtil.EnumCombo(Language.setting_label_tone_mode, ref MidiBard.config.GuitarToneMode, labelsOverride: GetToneModeLabels(), toolTips: GetToneModeToolTips()))
             {
                 IPC.IPCHandles.SyncAllSettings();
             }

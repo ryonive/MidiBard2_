@@ -237,11 +237,11 @@ internal class EnsembleManager : IDisposable
         },
         new byte[] // 7 / Clarinet / 072clarinet.scd
         {
-            147, 147, 147, 147, 147, 147, 147, 147, 147, 147, 147, // scd4
-            79, 79, 79, 79, 79, 79,                                // scd3
-            73, 73, 73, 73, 73,                                    // scd2
-            78, 78, 78, 78, 78, 78, 78,                            // scd1
-            69, 69, 69, 69, 69, 69, 69, 69                         // scd0
+            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,                           // scd4
+            4, 4, 4, 4, 4, 4,                                          // scd3
+            7, 7, 7, 7, 7,                                             // scd2
+            13, 13, 13, 13, 13, 13, 13,                                // scd1
+            7, 7, 7, 7, 7, 7, 7, 7,                                    // scd0
         },
         new byte[] // 8 / Fife / 073piccolo.scd
         {
@@ -644,34 +644,34 @@ internal class EnsembleManager : IDisposable
     public static Dictionary<int, int> DefaultInstrumentCompensations => new()
     {
         //[0] = 105,
-        [1] = 85,
-        [2] = 90,
-        [3] = 105,
-        [4] = 90,
-        [5] = 95,
-        [6] = 95,
-        [7] = 95,
-        [8] = 95,
-        [9] = 90,
-        [10] = 90,
-        [11] = 80,
-        [12] = 80,
-        [13] = 85,
-        [14] = 30,
-        [15] = 30,
-        [16] = 30,
-        [17] = 30,
-        [18] = 30,
-        [19] = 30,
-        [20] = 30,
-        [21] = 30,
-        [22] = 30,
-        [23] = 30,
-        [24] = 30,
-        [25] = 30,
-        [26] = 30,
-        [27] = 30,
-        [28] = 30,
+        [1] = 85, // Harp
+        [2] = 90, // Piano
+        [3] = 105, // Lute
+        [4] = 90, // Fiddle
+        [5] = 95, // Flute
+        [6] = 95, // Oboe
+        [7] = 95, // Clarinet
+        [8] = 95, // Fife
+        [9] = 90, // Panpipes
+        [10] = 90, // Timpani
+        [11] = 80, // Bongo
+        [12] = 80, // BassDrum
+        [13] = 85, // SnareDrum
+        [14] = 30, // Cymbal
+        [15] = 30, // Trumpet
+        [16] = 30, // Trombone
+        [17] = 30, // Tuba
+        [18] = 30, // Horn
+        [19] = 30, // Saxophone
+        [20] = 30, // Violin
+        [21] = 30, // Viola
+        [22] = 30, // Cello
+        [23] = 30, // DoubleBass
+        [24] = 30, // ElectricGuitarOverdriven
+        [25] = 30, // ElectricGuitarClean
+        [26] = 30, // ElectricGuitarMuted
+        [27] = 30, // ElectricGuitarPowerChords
+        [28] = 30, // ElectricGuitarSpecial
     };
 
     internal static void InvokeEnsembleStop() => EnsembleStopped?.Invoke();

@@ -22,8 +22,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
-using Dalamud.Interface.ImGuiNotification;
-
 using Melanchall.DryWetMidi.Common;
 using Melanchall.DryWetMidi.Core;
 using Melanchall.DryWetMidi.Interaction;
@@ -51,11 +49,7 @@ internal sealed class BardPlayback : Playback
     public static BardPlayback GetBardPlayback(MidiFile file, string filePath)
     {
         PreparePlaybackData(file, out var tempoMap, out var trackChunks, out var trackInfos, out var timedEventWithMetadata);
-
-        // only use midiFileConfig(including Default Performer) when in the party
-        MidiFileConfig midiFileConfig = (api.PartyList.IsInParty() && !MidiBard.config.lockTracks)
-            ? ResolveMidiFileConfig(filePath, trackChunks, trackInfos)
-            : null;
+        MidiFileConfig midiFileConfig = ResolveMidiConfig(filePath, trackChunks, trackInfos);
 
         return new BardPlayback(timedEventWithMetadata, tempoMap)
         {
@@ -68,66 +62,122 @@ internal sealed class BardPlayback : Playback
         };
     }
 
-    private static MidiFileConfig ResolveMidiFileConfig(string filePath, TrackChunk[] trackChunks, TrackInfo[] trackInfos)
+    private static MidiFileConfig ResolveMidiConfig(string filePath, TrackChunk[] trackChunks, TrackInfo[] trackInfos)
     {
-        var midiFileConfig = MidiFileConfigManager.GetMidiConfigFromFile(filePath);
+        // dont use midiFileConfi or Default Performer when not in a party
+        var ignoreDefaultPerformer = api.PartyList.IsInParty() && MidiBard.config.lockTracks;
+        if (!api.PartyList.IsInParty() || ignoreDefaultPerformer)
+        {
+            PluginLog.Debug($"[LoadPlayback] using config TrackStatus");
+            return null;
+        }
 
-        if (midiFileConfig is null || midiFileConfig.Tracks.Count != trackChunks.Length)
-            return LoadConfigFallback(trackInfos);
-
-        return EnsureValidCids(midiFileConfig, filePath);
-    }
-
-    private static MidiFileConfig LoadConfigFallback(TrackInfo[] trackInfos)
-    {
-        var fallbackMidiFileConfig = MidiFileConfigManager.GetMidiConfigFromTrack(trackInfos);
-
-        if (!MidiBard.config.playOnMultipleDevices)
-            return LoadDefaultPerformer(fallbackMidiFileConfig);
+        var midiConfigFromTrack = MidiFileConfigManager.GetMidiConfigFromTrack(trackInfos);
 
         // PMD
-        if (MidiBard.config.usingFileSharingServices)
+        if (MidiBard.config.playOnMultipleDevices)
         {
-            MidiFileConfigManager.LoadDefaultPerformer();
-            return LoadDefaultPerformer(fallbackMidiFileConfig);
+            if (MidiBard.config.usingFileSharingServices)
+            {
+                PluginLog.Debug($"[LoadPlayback] using shared default performer");
+                return LoadMidiConfigFromDefaultPerformer(midiConfigFromTrack);
+            }
+
+            PluginLog.Debug($"[LoadPlayback] using config TrackStatus");
+            return LoadMidiConfigFromTrackStatus(midiConfigFromTrack);
         }
 
-        return fallbackMidiFileConfig;
+        // use midi specific json config
+        // TODO: improve json config file changes detection
+        // compare tracks name / order do decide what props to reset
+        var midiFileConfig = MidiFileConfigManager.GetMidiConfigFromFile(filePath);
+        var isMidiTracksEqualJsonConfigFileTracks = midiFileConfig?.Tracks.Count == trackChunks.Length;
+        var useMidiJsonFileConfig = midiFileConfig is not null && isMidiTracksEqualJsonConfigFileTracks;
+        if (useMidiJsonFileConfig)
+        {
+            PluginLog.Debug($"[LoadPlayback] using json midi file config");
+            return LoadMidiConfigFromJson(midiFileConfig, filePath);
+        }
+
+        // default performer
+        var defaultPerformerTrackMapping = MidiFileConfigManager.defaultPerformer?.TrackMappingDict ?? new();
+        var useDefaultPerformer = defaultPerformerTrackMapping.Count > 0;
+        if (useDefaultPerformer)
+        {
+            PluginLog.Debug($"[LoadPlayback] using default performer");
+            return LoadMidiConfigFromDefaultPerformer(midiConfigFromTrack);
+        }
+
+        // if in a party but no default perform or midi json file use config.TrackStatus
+        // for solo bards while in party or ensemble with PMD to not lose the assigned tracks
+        PluginLog.Debug($"[LoadPlayback] no json midi file or default performer using config TrackStatus");
+        return LoadMidiConfigFromTrackStatus(midiConfigFromTrack);
     }
 
-    private static MidiFileConfig EnsureValidCids(MidiFileConfig midiFileConfig, string filePath)
+    private static MidiFileConfig LoadMidiConfigFromJson(MidiFileConfig midiFileConfig, string filePath)
     {
-        var defaultConfig = LoadDefaultPerformer(midiFileConfig);
+        // PluginLog.Debug($"[LoadPlayback] using default performer fallback");
+        // var defaultPerformerFallback = LoadDefaultPerformer(midiFileConfig.JsonClone()); //clone this damn thing :P
         MidiFileConfigManager.UsingDefaultPerformer = false;
 
-        bool changed = false;
+        // bool changed = false;
 
         for (int i = 0; i < midiFileConfig.Tracks.Count; i++)
-        {
+            Cids[i] = MidiFileConfig.GetFirstCidInParty(midiFileConfig.Tracks[i]);
 
-            var cid = MidiFileConfig.GetFirstCidInParty(midiFileConfig.Tracks[i]);
+        // fall back to default performer if can't find any record in the individual config(caused by changing characters)
+        // for (int i = 0; i < defaultPerformerFallback.Tracks.Count; i++)
+        // {
+        //     var cid = MidiFileConfig.GetFirstCidInParty(defaultPerformerFallback.Tracks[i]);
 
-            if (cid <= 0)
-            {
-                // fall back to default performer if can't find any record in the individual config(caused by changing characters)
-                cid = MidiFileConfig.GetFirstCidInParty(defaultConfig.Tracks[i]);
-                midiFileConfig.Tracks[i].AssignedCids.Add(cid);
-                changed = true;
-            }
+        //     if (!Cids.Contains(cid))
+        //     {
+        //         midiFileConfig.Tracks[i].AssignedCids.Add(cid);
+        //         changed = true;
+        //     }
+        // }
 
-            Cids[i] = cid;
-        }
-
-        if (changed)
-        {
-            try { midiFileConfig.Save(filePath); }
-            catch
-            {
-                // ignored
-            }
-        }
+        // if (changed)
+        // {
+        //     try
+        //     {
+        //         midiFileConfig.Save(filePath);
+        //     }
+        //     catch
+        //     {
+        //         // ignored
+        //     }
+        // }
 
         return midiFileConfig;
+    }
+
+    private static MidiFileConfig LoadMidiConfigFromTrackStatus(MidiFileConfig midiConfigFromTrack)
+    {
+        MidiFileConfigManager.UsingDefaultPerformer = false;
+        Cids = new long[100];
+
+        var bardCid = (long)api.ClientState.LocalContentId;
+        for (int i = 0; i < midiConfigFromTrack.Tracks.Count; i++)
+        {
+            if (MidiBard.config.TrackStatus[i].Enabled)
+            {
+                midiConfigFromTrack.Tracks[i].Enabled = true;
+                midiConfigFromTrack.Tracks[i].AssignedCids.Add(bardCid);
+                Cids[i] = bardCid;
+            }
+        }
+
+        return midiConfigFromTrack;
+    }
+
+    private static MidiFileConfig LoadMidiConfigFromDefaultPerformer(MidiFileConfig midiConfigFromTrack)
+    {
+        // PMD
+        if (MidiBard.config.usingFileSharingServices)
+            MidiFileConfigManager.LoadDefaultPerformer();
+
+        return LoadDefaultPerformer(midiConfigFromTrack);
     }
 
     private BardPlayback(IEnumerable<TimedEventWithMetadata> timedObjects, TempoMap tempoMap)
@@ -145,7 +195,7 @@ internal sealed class BardPlayback : Playback
 
     private static void PreparePlaybackData(MidiFile file, out TempoMap tempoMap, out TrackChunk[] trackChunks, out TrackInfo[] trackInfos, out TimedEventWithMetadata[] timedEventWithMetadata)
     {
-        if (MidiBard.config.AntiStackType != 0)
+        if (MidiBard.config.AntiStackType != AntiStackType.Off)
             file = MidiPreprocessor.RemoveStackedNotes(file, MidiBard.config.AntiStackType);
         if (MidiBard.config.AlignMidi)
             file = MidiPreprocessor.RealignMidiFile(file, MidiBard.config.AlignMidiStartOffset);
@@ -233,6 +283,7 @@ internal sealed class BardPlayback : Playback
             TrackName = TrackName,
             IsProgramControlled = IsProgramControlled,
             Index = index,
+            IsProgramElectricGuitar = TrackName.ToLower().Replace(":", "").StartsWith("programelectricguitar")
             //Channels = i.Events.OfType<ProgramChangeEvent>().Select(j => j.Channel).Distinct().Union(notes.Select(note => note.Channel).Distinct()).ToArray()
         };
     }
@@ -273,10 +324,9 @@ internal sealed class BardPlayback : Playback
     public static MidiFileConfig LoadDefaultPerformer(MidiFileConfig midiFileConfig)
     {
         MidiFileConfigManager.UsingDefaultPerformer = true;
-        ImGuiUtil.AddNotification(NotificationType.Info, "Use Default Performer.");
-
-        Cids = new long[100];
         var trackMapping = MidiFileConfigManager.defaultPerformer?.TrackMappingDict ?? new();
+        Cids = new long[100];
+
         var partyMembers = api.PartyList.ToList();
 
         foreach (var member in partyMembers)
@@ -360,8 +410,12 @@ internal sealed class BardPlayback : Playback
         if (MidiFileConfig == null)
             return;
 
+        // if (MidiFileConfig == null || MidiFileConfigManager.UsingDefaultPerformer)
+        //     return;
+
         var tracks = MidiFileConfig.Tracks;
         MidiBard.config.ResetTrackStatus();
+        PluginLog.Debug($"[LoadPlayback] SyncTrackStatusWithMidiFileConfig");
         for (var trackIndex = 0; trackIndex < MidiFileConfig.Tracks.Count; trackIndex++)
         {
             try

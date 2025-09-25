@@ -24,6 +24,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using BardMusicPlayer.XIVMIDI;
+
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
@@ -152,6 +154,9 @@ public class MidiBard : IDalamudPlugin
         {
             Ui.OpenMainWindow();
         }
+
+        XIVMIDI.Instance.Start();
+        XIVMIDI.Instance.OnRequestFinished += Ui.Instance_RequestFinished;
     }
 
     private void OnFrameworkUpdate(IFramework framework)
@@ -330,9 +335,9 @@ public class MidiBard : IDalamudPlugin
     {
         English,
         简体中文,
-        //繁體中文,
-        //日本語,
-        //Deutsch,
+        繁體中文,
+        日本語,
+        Deutsch,
     }
 
     public static string GetCultureCodeString(CultureCode culture)
@@ -341,9 +346,9 @@ public class MidiBard : IDalamudPlugin
         {
             CultureCode.English => "en",
             CultureCode.简体中文 => "zh-Hans",
-            //CultureCode.繁體中文 => "zh-Hant",
-            //CultureCode.日本語 => "ja",
-            //CultureCode.Deutsch => "de",
+            CultureCode.繁體中文 => "zh-Hant",
+            CultureCode.日本語 => "ja",
+            CultureCode.Deutsch => "de",
             _ => null
         };
     }
@@ -451,6 +456,8 @@ public class MidiBard : IDalamudPlugin
 
     public void Dispose()
     {
+        XIVMIDI.Instance.OnRequestFinished -= Ui.Instance_RequestFinished;
+        XIVMIDI.Instance.Stop();
         try
         {
             SaveConfig();
@@ -462,7 +469,6 @@ public class MidiBard : IDalamudPlugin
 
         api.ChatGui.ChatMessage -= PartyChatCommand.OnChatMessage;
         //Cbase.Dispose();
-
         FreeUnmanagedResources();
         GC.SuppressFinalize(this);
     }

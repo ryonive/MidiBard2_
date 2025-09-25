@@ -210,11 +210,13 @@ public class BardPlayDevice : IOutputDevice
     private unsafe bool PlayMidiEvent(MidiEvent midiEvent, int trackIndex, bool isDevice)
     {
         if (IsDisposed) return false;
-
         switch (midiEvent)
         {
             case ProgramChangeEvent programChangeEvent:
-                ProcessProgramChange(programChangeEvent);
+                if ((bool)(MidiBard.CurrentPlayback?.TrackInfos[trackIndex].IsProgramElectricGuitar) && MidiBard.config.GuitarToneMode == GuitarToneMode.ProgramElectricGuitarMode)
+                    Channels[programChangeEvent.Channel].Program = programChangeEvent.ProgramNumber;
+                else
+                    ProcessProgramChange(programChangeEvent);
                 break;
             case NoteEvent noteEvent:
                 var noteNum = isDevice ? GetNoteNumberTranslated(noteEvent.NoteNumber) : GetNoteNumberTranslatedByTrack(noteEvent.NoteNumber, trackIndex);
@@ -222,21 +224,28 @@ public class BardPlayDevice : IOutputDevice
 
                 if (MidiBard.PlayingGuitar)
                 {
-                    switch (MidiBard.config.GuitarToneMode)
+                    if ((bool)(MidiBard.CurrentPlayback?.TrackInfos[trackIndex].IsProgramElectricGuitar) && MidiBard.config.GuitarToneMode == GuitarToneMode.ProgramElectricGuitarMode)
                     {
-                        case GuitarToneMode.Off:
-                            break;
-                        case GuitarToneMode.Standard:
-                        case GuitarToneMode.Simple:
-                            {
-                                ApplyToneByChannel(noteEvent.Channel);
+                        ApplyToneByChannel(noteEvent.Channel);
+                    }
+                    else
+                    {
+                        switch (MidiBard.config.GuitarToneMode)
+                        {
+                            case GuitarToneMode.Off:
                                 break;
-                            }
-                        case GuitarToneMode.OverrideByTrack when !isDevice:
-                            {
-                                ApplyToneByTrack(trackIndex);
-                                break;
-                            }
+                            case GuitarToneMode.Standard:
+                            case GuitarToneMode.Simple:
+                                {
+                                    ApplyToneByChannel(noteEvent.Channel);
+                                    break;
+                                }
+                            case GuitarToneMode.OverrideByTrack when !isDevice:
+                                {
+                                    ApplyToneByTrack(trackIndex);
+                                    break;
+                                }
+                        }
                     }
                 }
 
@@ -329,7 +338,6 @@ public class BardPlayDevice : IOutputDevice
             default:
                 throw new ArgumentOutOfRangeException();
         }
-
         return;
     }
 
@@ -341,11 +349,9 @@ public class BardPlayDevice : IOutputDevice
         if (!instrument.IsGuitar) return false;
         tone = instrument.GuitarTone;
         return true;
-
     }
 
     static string GetNoteName(NoteEvent note) => $"{note.GetNoteName().ToString().Replace("Sharp", "#")}{note.GetNoteOctave()}";
-
 
     public static int GetNoteNumberTranslatedByTrack(int noteNumber, int trackIndex)
     {

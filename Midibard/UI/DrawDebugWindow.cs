@@ -17,7 +17,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -25,11 +24,9 @@ using System.Numerics;
 using System.Reflection;
 using System.Text;
 
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.ImGuiNotification;
-using Dalamud.Memory;
-
-using ImGuiNET;
 
 using Melanchall.DryWetMidi.Multimedia;
 
@@ -945,7 +942,7 @@ namespace MidiBard
                 {
                     searched = glyphs;
                 }
-                if (ImGui.InputText("se", ref searchedstring, 100))
+                if (ImGui.InputTextWithHint("#fontAwesomeSearchInput", "icon", ref searchedstring, 100))
                 {
                     if (!string.IsNullOrWhiteSpace(searchedstring))
                     {
